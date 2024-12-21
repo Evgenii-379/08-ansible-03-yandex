@@ -56,13 +56,12 @@ LightHouse Playbook-предназначен для установки и нас
 -Запускает и включает службу Nginx.
 В плейбук LightHouse включено несколько настраиваемых параметров:
 
-ighthouse_repo_url-URL-адрес репозитория LightHouse;  lighthouse_local_path-Локальный путь, по которому будет сохранен загруженный zip-файл; lighthouse_extract_path-
-путь, по которому будут извлечены файлы LightHouse
-Теги в playbook-LightHouse: 
+-ighthouse_repo_url-URL-адрес репозитория LightHouse;  lighthouse_local_path-Локальный путь, по которому будет сохранен загруженный zip-файл; lighthouse_extract_path-
+ путь, по которому будут извлечены файлы LightHouse
+- Теги в playbook-LightHouse: 
 - установка (install) 
 - конфигурация (configure)
 - запуск (start)
-
 
 
 
