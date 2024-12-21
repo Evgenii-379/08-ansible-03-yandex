@@ -1,0 +1,140 @@
+---
+- name: Install Clickhouse
+  hosts: clickhouse
+  handlers:
+    - name: Start clickhouse service
+      become: true
+      ansible.builtin.service:
+        name: clickhouse-server
+        state: restarted
+  tasks:
+    - block:
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.noarch.rpm"
+            dest: "./{{ item }}-{{ clickhouse_version }}.rpm"
+          loop: "{{ clickhouse_packages }}"
+      rescue:
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/stable/clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
+            dest: "./clickhouse-common-static-{{ clickhouse_version }}.rpm"
+    - name: Install clickhouse packages
+      become: true
+      ansible.builtin.yum:
+        name:
+          - clickhouse-common-static-{{ clickhouse_version }}.rpm
+          - clickhouse-client-{{ clickhouse_version }}.rpm
+          - clickhouse-server-{{ clickhouse_version }}.rpm
+      notify: Start clickhouse service
+    - name: Flush handlers
+      meta: flush_handlers
+    - name: Create database
+      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+      register: create_db
+      failed_when: create_db.rc != 0 and create_db.rc !=82
+      changed_when: create_db.rc == 0
+
+- name: Install and Configure Vector
+  hosts: vector
+  vars:
+    vector_version: "0.43.0"
+    local_vector_file: "/home/evgenii/Загрузки/vector_0.43.0-1_amd64.deb"
+
+  handlers:
+    - name: Restart Vector service
+      become: true
+      ansible.builtin.service:
+        name: vector
+        state: restarted
+
+  tasks:
+    - name: Copy Vector distribution from local machine
+      ansible.builtin.copy:
+        src: "{{ local_vector_file }}"
+        dest: "/tmp/vector.deb"
+        mode: 0755
+      become: true
+
+    - name: Ensure the extraction directory exists
+      ansible.builtin.file:
+        path: /usr/local/vector/
+        state: directory
+        mode: '0755'                                                      # права доступа
+      become: true
+
+    - name: Install Vector package
+      ansible.builtin.apt:
+        deb: "/tmp/vector.deb"                                            # Установка .deb пакета
+        state: present
+      become: true
+
+    - name: Ensure the configuration directory exists
+      ansible.builtin.file:
+        path: /etc/vector/
+        state: directory
+        mode: '0755'
+      become: true
+
+    - name: Restart Vector service after installation
+      ansible.builtin.service:
+        name: vector
+        state: restarted
+      become: true
+
+
+- name: Install and Configure LightHouse
+  hosts: lighthouse
+  become: true
+  vars:
+    lighthouse_repo_url: "https://github.com/VKCOM/lighthouse/archive/refs/heads/master.zip"
+    lighthouse_local_path: "/tmp/lighthouse.zip"
+    lighthouse_extract_path: "/var/www/lighthouse"
+
+  tasks:
+    - name: Create destination directory for LightHouse
+      ansible.builtin.file:
+        path: "{{ lighthouse_extract_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download LightHouse static files
+      ansible.builtin.get_url:
+        url: "{{ lighthouse_repo_url }}"
+        dest: "{{ lighthouse_local_path }}"
+
+    - name: Install unzip
+      ansible.builtin.apt:
+        name: unzip
+        state: present
+
+    - name: Unzip LightHouse files
+      ansible.builtin.unarchive:
+        src: "{{ lighthouse_local_path }}"
+        dest: "{{ lighthouse_extract_path }}"
+        remote_src: true
+        extra_opts: [--strip-components=1]
+
+    - name: Install Nginx web server
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Configure Nginx for LightHouse
+      ansible.builtin.template:
+        src: nginx_lighthouse.conf.j2
+        dest: /etc/nginx/conf.d/lighthouse.conf
+        mode: '644'
+      notify: Restart Nginx
+
+    - name: Start Nginx service
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted

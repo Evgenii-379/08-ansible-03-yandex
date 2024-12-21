@@ -1,0 +1,19 @@
+---
+    clickhouse:
+      hosts:
+        clickhouse-01:
+          ansible_host: 158.160.67.151
+          ansible_user: evgenii_1
+    vector:
+      hosts:
+        vector-01:
+          ansible_host: 51.250.26.112
+          ansible_user: evgenii_2
+    lighthouse:
+       hosts:
+         lighthouse-01:
+           ansible_host: 84.201.161.194
+           ansible_user: evgenii_3
+
+
+
